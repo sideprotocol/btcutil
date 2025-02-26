@@ -285,24 +285,19 @@ func Decode(bech string, limit int) (string, []byte, error) {
 	}
 
 	hrp, data, _, err := DecodeNoLimitWithVersion(bech)
-	// println("Side Decode", bech, hrp, hex.EncodeToString(data), len(data))
-	if hrp != SIDE_HRP && len(data) != 53 {
+	length := len(data)
+	// println("Side Decode", bech, hrp, hex.EncodeToString(data), length)
+
+	if length == 53 || length == 33 {
 		data, err = ConvertBits(data, 8, 5, true)
 	}
-	if !strings.HasPrefix(bech, SIDE_HRP) {
-		hrp = SIDE_HRP
+
+	if strings.HasPrefix(bech, BITCOIN_HRP) {
+		hrp = SIDE_HRP // return "side" for segwit/taproot
 	}
-	// else {
-	// 	if err == nil {
-	// 		data, err = ConvertBits(data, 8, 5, true)
-	// 	}
-	// }
+
 	return hrp, data, err
 }
-
-// func Decode(bech string, limit number) (string, []byte, error) {
-// 	return Decode()
-// }
 
 // DecodeGeneric is identical to the existing Decode method, but will also
 // return bech32 version that matches the decoded checksum. This method should
@@ -350,20 +345,28 @@ func encodeGeneric(hrp string, data []byte,
 // since mixed cased encodings are not permitted and lowercase is used for
 // checksum purposes.  Note that the bytes must each encode 5 bits (base32).
 func Encode(hrp string, data []byte) (string, error) {
-
-	// println("Encode hrp", hrp, len(data))
 	length := len(data)
-	if hrp == SIDE_HRP && (length == 53 || length == 33) {
+	// println("Encode hrp", hrp, length)
+
+	if hrp == SIDE_HRP && length == 85 {
 		if origin, err := ConvertBits(data, 5, 8, false); err == nil {
-			v := Version0
-			if data[0] == 0x1 {
-				v = VersionM
-			}
-			if addr, err := encodeGeneric(BITCOIN_HRP, origin, v); err == nil {
-				return addr, nil
-			} else if addr, err := encodeGeneric(BITCOIN_HRP, data, v); err == nil {
+			if addr, err := encodeGeneric(BITCOIN_HRP, origin, VersionM); err == nil {
 				return addr, nil
 			}
+		}
+	}
+
+	if hrp == SIDE_HRP && length == 53 {
+		if origin, err := ConvertBits(data, 5, 8, false); err == nil {
+			if addr, err := encodeGeneric(BITCOIN_HRP, origin, Version0); err == nil {
+				return addr, nil
+			}
+		}
+	}
+
+	if length == 85 || length == 53 {
+		if origin, err := ConvertBits(data, 5, 8, false); err == nil {
+			data = origin
 		}
 	}
 
