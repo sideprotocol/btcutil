@@ -286,9 +286,19 @@ func Decode(bech string, limit int) (string, []byte, error) {
 
 	hrp, data, _, err := DecodeNoLimitWithVersion(bech)
 	length := len(data)
-	// println("Side Decode", bech, hrp, hex.EncodeToString(data), length)
 
-	if length == 53 || length == 33 {
+	// decode taproot address
+	if length == 53 {
+		if strings.HasPrefix(bech, BITCOIN_HRP) {
+			data = data[1:]
+		} else {
+			// data = data
+			// data, err = ConvertBits(data, 8, 5, true)
+		}
+	}
+
+	// decode segwit address
+	if length == 33 {
 		data, err = ConvertBits(data, 8, 5, true)
 	}
 
@@ -345,28 +355,21 @@ func encodeGeneric(hrp string, data []byte,
 // since mixed cased encodings are not permitted and lowercase is used for
 // checksum purposes.  Note that the bytes must each encode 5 bits (base32).
 func Encode(hrp string, data []byte) (string, error) {
+
 	length := len(data)
-	// println("Encode hrp", hrp, length)
 
-	if hrp == SIDE_HRP && length == 85 {
-		if origin, err := ConvertBits(data, 5, 8, false); err == nil {
-			if addr, err := encodeGeneric(BITCOIN_HRP, origin, VersionM); err == nil {
-				return addr, nil
-			}
-		}
+	// taproot address
+	if length == 52 && hrp == SIDE_HRP {
+		combined := make([]byte, length+1)
+		combined[0] = 0x1
+		copy(combined[1:], data)
+		return encodeGeneric(BITCOIN_HRP, combined, VersionM)
 	}
 
-	if hrp == SIDE_HRP && length == 53 {
+	// segwit address
+	if length == 53 && hrp == SIDE_HRP {
 		if origin, err := ConvertBits(data, 5, 8, false); err == nil {
-			if addr, err := encodeGeneric(BITCOIN_HRP, origin, Version0); err == nil {
-				return addr, nil
-			}
-		}
-	}
-
-	if length == 85 || length == 53 {
-		if origin, err := ConvertBits(data, 5, 8, false); err == nil {
-			data = origin
+			return encodeGeneric(BITCOIN_HRP, origin, Version0)
 		}
 	}
 
