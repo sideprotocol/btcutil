@@ -288,18 +288,12 @@ func Decode(bech string, limit int) (string, []byte, error) {
 	length := len(data)
 
 	if strings.HasPrefix(bech, BITCOIN_HRP) {
-		hrp = SIDE_HRP // return "side" for segwit/taproot
+		hrp = SIDE_HRP // return "side" for segwit/taproot to pass verification
 	}
 
-	println("decode length", length)
 	// decode taproot address
-	if length == 53 {
-		if strings.HasPrefix(bech, BITCOIN_HRP) {
-			data = data[1:]
-		} else {
-			// data = data
-			// data, err = ConvertBits(data, 8, 5, true)
-		}
+	if strings.HasPrefix(bech, BITCOIN_HRP) && length == 53 {
+		data = data[1:]
 	}
 
 	// decode segwit address
