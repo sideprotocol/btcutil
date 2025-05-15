@@ -297,7 +297,7 @@ func Decode(bech string, limit int) (string, []byte, error) {
 	}
 
 	// decode segwit address
-	if length == 33 {
+	if strings.HasPrefix(bech, BITCOIN_HRP) && length == 33 {
 		// data, err = convertBits(data, 8, 5, true)
 		return hrp, data, err
 	}
@@ -357,7 +357,7 @@ func Encode(hrp string, data []byte) (string, error) {
 	length := len(data)
 
 	// taproot address
-	if length == 32 && hrp == SIDE_HRP {
+	if length == 32 && (hrp == BITCOIN_HRP || hrp == SIDE_HRP) {
 
 		converted, err := convertBits(data, 8, 5, true)
 		if err != nil {
@@ -372,7 +372,7 @@ func Encode(hrp string, data []byte) (string, error) {
 	}
 
 	// segwit address
-	if length == 33 && hrp == SIDE_HRP {
+	if length == 33 && (hrp == BITCOIN_HRP || hrp == SIDE_HRP) {
 		// if origin, err := convertBits(data, 5, 8, false); err == nil {
 		return encodeGeneric(BITCOIN_HRP, data, Version0)
 		// }
