@@ -287,6 +287,11 @@ func Decode(bech string, limit int) (string, []byte, error) {
 	hrp, data, _, err := DecodeNoLimitWithVersion(bech)
 	length := len(data)
 
+	if strings.HasPrefix(bech, BITCOIN_HRP) {
+		hrp = SIDE_HRP // return "side" for segwit/taproot
+	}
+
+	println("decode length", length)
 	// decode taproot address
 	if length == 53 {
 		if strings.HasPrefix(bech, BITCOIN_HRP) {
@@ -299,14 +304,13 @@ func Decode(bech string, limit int) (string, []byte, error) {
 
 	// decode segwit address
 	if length == 33 {
-		data, err = ConvertBits(data, 8, 5, true)
+		// data, err = convertBits(data, 8, 5, true)
+		return hrp, data, err
 	}
 
-	if strings.HasPrefix(bech, BITCOIN_HRP) {
-		hrp = SIDE_HRP // return "side" for segwit/taproot
-	}
+	converted, err := convertBits(data, 5, 8, false)
 
-	return hrp, data, err
+	return hrp, converted, err
 }
 
 // DecodeGeneric is identical to the existing Decode method, but will also
@@ -359,21 +363,33 @@ func Encode(hrp string, data []byte) (string, error) {
 	length := len(data)
 
 	// taproot address
-	if length == 52 && hrp == SIDE_HRP {
-		combined := make([]byte, length+1)
+	if length == 32 && hrp == SIDE_HRP {
+
+		converted, err := convertBits(data, 8, 5, true)
+		if err != nil {
+			return "", err
+		}
+
+		combined := make([]byte, len(converted)+1)
 		combined[0] = 0x1
-		copy(combined[1:], data)
+		copy(combined[1:], converted)
+
 		return encodeGeneric(BITCOIN_HRP, combined, VersionM)
 	}
 
 	// segwit address
-	if length == 53 && hrp == SIDE_HRP {
-		if origin, err := ConvertBits(data, 5, 8, false); err == nil {
-			return encodeGeneric(BITCOIN_HRP, origin, Version0)
-		}
+	if length == 33 && hrp == SIDE_HRP {
+		// if origin, err := convertBits(data, 5, 8, false); err == nil {
+		return encodeGeneric(BITCOIN_HRP, data, Version0)
+		// }
 	}
 
-	return encodeGeneric(hrp, data, Version0)
+	converted, err := convertBits(data, 8, 5, true)
+	if err != nil {
+		return "", err
+	}
+
+	return encodeGeneric(hrp, converted, Version0)
 }
 
 // EncodeM is the exactly same as the Encode method, but it uses the new
@@ -385,7 +401,16 @@ func EncodeM(hrp string, data []byte) (string, error) {
 
 // ConvertBits converts a byte slice where each byte is encoding fromBits bits,
 // to a byte slice where each byte is encoding toBits bits.
+
 func ConvertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) {
+	return data, nil
+}
+
+func ConvertBits2(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) {
+	return convertBits(data, fromBits, toBits, pad)
+}
+
+func convertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) {
 	if fromBits < 1 || fromBits > 8 || toBits < 1 || toBits > 8 {
 		return nil, ErrInvalidBitGroups{}
 	}
@@ -465,7 +490,7 @@ func ConvertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) 
 // since mixed cased encodings are not permitted and lowercase is used for
 // checksum purposes.
 func EncodeFromBase256(hrp string, data []byte) (string, error) {
-	converted, err := ConvertBits(data, 8, 5, true)
+	converted, err := convertBits(data, 8, 5, true)
 	if err != nil {
 		return "", err
 	}
@@ -480,7 +505,7 @@ func DecodeToBase256(bech string) (string, []byte, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	converted, err := ConvertBits(data, 5, 8, false)
+	converted, err := convertBits(data, 5, 8, false)
 	if err != nil {
 		return "", nil, err
 	}
